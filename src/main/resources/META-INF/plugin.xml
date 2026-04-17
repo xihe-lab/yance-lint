@@ -1,0 +1,75 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+    <id>com.xihe-lab.yance.yance-lint</id>
+
+    <!-- Public plugin name should be written in Title Case.
+     Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
+    <name>YanceLint</name>
+
+    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <vendor url="https://www.xihe-lab.com">羲和实验室</vendor>
+
+    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
+    <description><![CDATA[
+        Enterprise code convention and review plugin for IntelliJ IDEA.<br>
+        <br>
+        Features:<br>
+        - Unified code convention checks (P3C, ESLint, Stylelint, Checkstyle)<br>
+        - Real-time code review and automatic fixes<br>
+        - Quality metrics and dashboard<br>
+        - CI/CD integration support
+        ]]></description>
+
+    <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+
+    <!-- Optional dependency on Alibaba P3C plugin -->
+    <depends optional="true" config-file="p3c-optional.xml">com.alibaba.p3c.xenoamess</depends>
+
+    <resource-bundle>messages.YanceLintBundle</resource-bundle>
+
+    <!-- Extensions definition -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Register P3C Inspection -->
+        <localInspection implementationClass="com.xihe_lab.yance.core.provider.p3c.P3cInspection"
+                         shortName="p3c-naming-inspection"
+                         displayName="P3C 命名检查"
+                         groupName="Java"
+                         language="JAVA"
+                         level="WARNING"
+                         enabledByDefault="true"
+                         hasStaticDescription="true"
+        />
+
+        <!-- Register P3C ToolWindow -->
+        <toolWindow id="P3C"
+                    factoryClass="com.xihe_lab.yance.ui.P3cToolWindowFactory"
+                    anchor="left"
+                    icon="AllIcons.Actions.Search"
+                    isVisibleByDefault="true"
+        />
+
+        <!-- Register P3C Scan Service -->
+        <projectService serviceInterface="com.xihe_lab.yance.core.provider.p3c.P3cScanService"
+                        serviceImplementation="com.xihe_lab.yance.core.provider.p3c.P3cScanService"
+        />
+    </extensions>
+
+    <!-- Actions -->
+    <actions>
+        <!-- P3C Scan Action -->
+        <action id="P3cScanAction"
+                class="com.xihe_lab.yance.action.P3cScanAction"
+                text="Scan P3C Rules"
+                description="Scan project for P3C naming convention violations"
+                icon="AllIcons.Actions.Search">
+            <add-to-group group-id="ToolsMenu" />
+            <keyboard-shortcut first-keystroke="shift alt P" keymap="$default" />
+        </action>
+    </actions>
+
+</idea-plugin>
