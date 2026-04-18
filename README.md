@@ -43,20 +43,16 @@ curl http://localhost:63742/api/health
 # 预期返回: {"status":"ok","tools":["P3C","ESLint","Stylelint","Checkstyle"]}
 ```
 
-#### 2. 安装 MCP Server
+#### 2. 配置 MCP Server（推荐 npx 方式）
+
+无需手动安装，Claude Code 会自动从 npm 拉取：
 
 ```bash
-# 从 GitHub 克隆
-git clone https://github.com/xihe-lab/yance-mcp-server.git
-cd yance-mcp-server
-npm install && npm run build
+# 可选：预安装以加速首次启动
+npm install -g @xihe-lab/yance-mcp-server
 ```
 
-或从 npm 安装：
-
-```bash
-npm install @xihe-lab/yance-mcp-server
-```
+详细配置见 [yance-mcp-server 文档](https://github.com/xihe-lab/yance-mcp-server)。
 
 #### 3. 注册到 Claude Code
 
@@ -66,12 +62,14 @@ npm install @xihe-lab/yance-mcp-server
 {
   "mcpServers": {
     "yancelint": {
-      "command": "node",
-      "args": ["/path/to/yance-mcp-server/dist/index.js"]
+      "command": "npx",
+      "args": ["-y", "@xihe-lab/yance-mcp-server"]
     }
   }
 }
 ```
+
+`npx` 会自动从 npm 拉取最新版本运行，无需手动安装。
 
 #### 4. 配置自动检查 Hook（可选）
 
