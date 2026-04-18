@@ -1,5 +1,6 @@
 # YanceLint
 
+[![idea-plugin](https://img.shields.io/badge/idea--plugin-v1.0-orange.svg)](https://plugins.jetbrains.com/plugin/31337-yance-lint)
 [![JetBrains Marketplace](https://img.shields.io/badge/JetBrains-Marketplace-blue)](https://plugins.jetbrains.com/plugin/31337)
 [![Install Plugin](https://img.shields.io/badge/Install-EAP-orange)](https://plugins.jetbrains.com/embeddable/install/31337)
 [![MCP Server](https://img.shields.io/badge/MCP-Server-green)](https://github.com/xihe-lab/yance-mcp-server)
