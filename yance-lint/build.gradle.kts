@@ -46,13 +46,17 @@ intellijPlatform {
         name = "YanceLint"
         version = "1.0.0-SNAPSHOT"
         description = """
-            Enterprise code convention and review plugin for IntelliJ IDEA.<br>
-            <br>
-            Features:<br>
-            - Unified code convention checks (P3C, ESLint, Stylelint, Checkstyle)<br>
-            - Real-time code review and automatic fixes<br>
-            - Quality metrics and dashboard<br>
-            - CI/CD integration support
+            YanceLint — 企业级代码规约检查插件
+
+            支持四种规约引擎：P3C（阿里巴巴 Java 开发手册）、ESLint、Stylelint、Checkstyle。
+            通过 MCP Server 让 AI（Claude Code）实时感知代码规约违规。
+
+            核心功能：
+            - 多工具统一面板：P3C、ESLint、Stylelint、Checkstyle 扫描结果集中展示
+            - 实时检查：编辑时自动触发规约检查，编辑器高亮违规
+            - 项目级扫描：一键扫描整个项目（Shift+Alt+P）
+            - AI 集成（MCP）：内置 HTTP Server，让 AI 实时获取规约违规并自动修复
+            - 跨平台支持：IntelliJ IDEA（Java）和 WebStorm（JS/CSS）
             """.trimIndent()
 
         ideaVersion {
@@ -60,12 +64,14 @@ intellijPlatform {
         }
 
         changeNotes = """
-            <ul>
-                <li>Phase 1: Core model layer with P3C naming rules support</li>
-                <li>Rule engine with extensible RuleProvider architecture</li>
-                <li>PSI-based inspection with auto-fix support</li>
-                <li>Tool Window for violation display</li>
-            </ul>
+            1.0.0 版本：
+            - 多工具统一面板：P3C、ESLint、Stylelint、Checkstyle 扫描结果集中展示
+            - 结构化违规列表：左侧严重等级色条 + 双击跳转代码位置
+            - 项目级扫描：Tools → Scan YanceLint Rules（Shift+Alt+P）
+            - 气球通知：扫描完成后右下角通知，不再阻断式弹窗
+            - 品牌图标：墨律蓝 + 衍策金司南设计
+            - MCP Server：内置 HTTP Server（端口 63742），支持 AI 实时获取规约违规
+            - WebStorm 支持：Java 模块可选加载，ESLint/Stylelint 在 WebStorm 可用
             """.trimIndent()
     }
 }
