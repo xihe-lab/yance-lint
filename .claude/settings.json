@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": ["Bash(curl *)"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{ file=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty'); if [ -n \"$file\" ]; then ext=\"${file##*.}\"; case \"$ext\" in java|js|jsx|mjs|ts|tsx|css|scss|less|sass) encoded=$(python3 -c \"import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))\" \"$file\"); result=$(curl -s --max-time 5 \"http://localhost:63742/api/violations?file=$encoded\" 2>/dev/null); if [ -n \"$result\" ] && [ \"$result\" != \"[]\" ]; then echo \"{\\\"systemMessage\\\": \\\"YanceLint 发现规约违规：$result\\\", \\\"continue\\\": true}\"; fi;; esac; fi; }",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
