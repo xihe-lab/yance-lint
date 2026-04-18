@@ -1,0 +1,3 @@
+[submodule "yance-mcp-server"]
+	path = yance-mcp-server
+	url = https://github.com/xihe-lab/yance-mcp-server.git
