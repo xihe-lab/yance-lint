@@ -1,17 +1,25 @@
 package com.xihe_lab.yance.idea.lint.action
 
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.ToolWindowManager
 
 class YanceLintScanAction : AnAction() {
+
+    companion object {
+        private const val TOOL_WINDOW_ID = "YanceLint"
+    }
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
+
+        activateToolWindow(project)
 
         Thread {
             var total = 0
@@ -40,18 +48,33 @@ class YanceLintScanAction : AnAction() {
             }
 
             val finalTotal = total
-            ApplicationManager.getApplication().invokeLater {
-                if (finalTotal == 0) {
-                    com.intellij.openapi.ui.Messages.showInfoMessage(project, "未发现规约违规", "YanceLint 扫描结果")
-                } else {
-                    val details = counts.entries.joinToString("\n") { "- ${it.key}: ${it.value}" }
-                    com.intellij.openapi.ui.Messages.showWarningDialog(
-                        project,
-                        "发现 $finalTotal 个规约违规\n$details\n\n请在 YanceLint 工具窗口查看详情",
-                        "YanceLint 扫描完成"
-                    )
-                }
-            }
+            notifyResult(project, finalTotal, counts)
         }.start()
+    }
+
+    private fun activateToolWindow(project: Project) {
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(TOOL_WINDOW_ID)
+        toolWindow?.activate(null)
+    }
+
+    private fun notifyResult(project: Project, total: Int, counts: Map<String, Int>) {
+        val groupManager = NotificationGroupManager.getInstance()
+        val group = groupManager.getNotificationGroup("YanceLint Notifications")
+
+        val notification = if (total == 0) {
+            group.createNotification(
+                "YanceLint 扫描完成",
+                "无规约违规",
+                NotificationType.INFORMATION
+            )
+        } else {
+            val details = counts.entries.joinToString("\n") { "- ${it.key}: ${it.value}" }
+            group.createNotification(
+                "YanceLint 扫描完成",
+                "发现 $total 个规约违规\n$details",
+                NotificationType.WARNING
+            )
+        }
+        notification.notify(project)
     }
 }
