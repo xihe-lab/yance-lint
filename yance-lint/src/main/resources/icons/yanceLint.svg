@@ -1,10 +1,53 @@
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="8" cy="8" r="7" stroke="#1E2B4D" stroke-width="1.5" fill="none"/>
-    <circle cx="8" cy="8" r="1" fill="#D4AF37"/>
-    <polygon points="8,1.5 8.8,6 8,7 7.2,6" fill="#1E2B4D"/>
-    <polygon points="8,14.5 7.2,10 8,9 8.8,10" fill="#D4AF37"/>
-    <polygon points="1.5,8 6,7.2 7,8 6,8.8" fill="#1E2B4D" opacity="0.5"/>
-    <polygon points="14.5,8 10,8.8 9,8 10,7.2" fill="#1E2B4D" opacity="0.5"/>
-    <rect x="7.5" y="0.8" width="1" height="1.2" rx="0.3" fill="#1E2B4D"/>
-    <rect x="7.5" y="14" width="1" height="1.2" rx="0.3" fill="#D4AF37"/>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景圆 -->
+  <circle cx="128" cy="128" r="120" fill="#1E2B4D"/>
+  
+  <!-- 内圈光晕 -->
+  <circle cx="128" cy="128" r="100" fill="none" stroke="#2D4A8C" stroke-width="2"/>
+  
+  <!-- 中心太阳图案 -->
+  <circle cx="128" cy="128" r="45" fill="url(#goldGradient)"/>
+  
+  <!-- 太阳光芒 - 8道主光芒 -->
+  <g fill="#D4AF37">
+    <!-- 上 -->
+    <rect x="124" y="20" width="8" height="35" rx="4"/>
+    <!-- 下 -->
+    <rect x="124" y="201" width="8" height="35" rx="4"/>
+    <!-- 左 -->
+    <rect x="20" y="124" width="35" height="8" rx="4"/>
+    <!-- 右 -->
+    <rect x="201" y="124" width="35" height="8" rx="4"/>
+    <!-- 右上 -->
+    <rect x="168" y="52" width="8" height="28" rx="4" transform="rotate(45 168 52)"/>
+    <!-- 左下 -->
+    <rect x="80" y="176" width="8" height="28" rx="4" transform="rotate(45 80 176)"/>
+    <!-- 左上 -->
+    <rect x="52" y="80" width="8" height="28" rx="4" transform="rotate(-45 52 80)"/>
+    <!-- 右下 -->
+    <rect x="176" y="168" width="8" height="28" rx="4" transform="rotate(-45 176 168)"/>
+  </g>
+  
+  <!-- 副光芒 - 8道 -->
+  <g fill="#F5D76E" opacity="0.7">
+    <rect x="124" y="60" width="8" height="20" rx="4"/>
+    <rect x="124" y="176" width="8" height="20" rx="4"/>
+    <rect x="60" y="124" width="20" height="8" rx="4"/>
+    <rect x="176" y="124" width="20" height="8" rx="4"/>
+    <rect x="145" y="90" width="8" height="18" rx="4" transform="rotate(45 145 90)"/>
+    <rect x="103" y="148" width="8" height="18" rx="4" transform="rotate(45 103 148)"/>
+    <rect x="90" y="103" width="8" height="18" rx="4" transform="rotate(-45 90 103)"/>
+    <rect x="148" y="145" width="8" height="18" rx="4" transform="rotate(-45 148 145)"/>
+  </g>
+  
+  <!-- 中心 "L" 字母 - 代表 Lint -->
+  <path d="M108 108 H118 V128 H138 V138 H118 V158 H108 V108Z" fill="#1E2B4D"/>
+  
+  <!-- 渐变定义 -->
+  <defs>
+    <linearGradient id="goldGradient" x1="83" y1="83" x2="173" y2="173" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F5D76E"/>
+      <stop offset="100%" stop-color="#D4AF37"/>
+    </linearGradient>
+  </defs>
 </svg>
