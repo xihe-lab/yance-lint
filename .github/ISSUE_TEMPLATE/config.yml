@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 YanceLint 文档
+    url: https://github.com/xihe-lab/yance-idea#readme
+    about: 查阅 YanceLint 使用文档和配置说明
+  - name: 💬 GitHub Discussions
+    url: https://github.com/xihe-lab/yance-idea/discussions
+    about: 参与讨论和社区交流
+  - name: 🔗 JetBrains Marketplace
+    url: https://plugins.jetbrains.com/plugin/31337-yance-lint
+    about: 查看 JetBrains Marketplace 上的 YanceLint
