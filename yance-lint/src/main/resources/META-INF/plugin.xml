@@ -138,17 +138,7 @@
         <externalAnnotator language="CSS"
                            implementationClass="com.xihe_lab.yance.idea.stylelint.StylelintAnnotator"
         />
-        <externalAnnotator language="LESS"
-                           implementationClass="com.xihe_lab.yance.idea.stylelint.StylelintAnnotator"
-        />
-        <externalAnnotator language="SCSS"
-                           implementationClass="com.xihe_lab.yance.idea.stylelint.StylelintAnnotator"
-        />
 
-        <!-- Checkstyle Annotator -->
-        <externalAnnotator language="JAVA"
-                           implementationClass="com.xihe_lab.yance.idea.checkstyle.CheckstyleAnnotator"
-        />
     </extensions>
 
     <!-- Actions -->
