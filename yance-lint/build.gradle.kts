@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.xihe-lab.yance"
-version = "1.0.0-SNAPSHOT"
+version = "1.0.0-EAP.1"
 
 kotlin {
     jvmToolchain(21)
@@ -44,8 +44,11 @@ intellijPlatform {
     pluginConfiguration {
         id = "com.xihe-lab.yance.yance-lint"
         name = "Yance Lint"
-        version = "1.0.0-SNAPSHOT"
+        version = "1.0.0-EAP.1"
         description = """
+            <h2>YanceLint — Enterprise Code Convention Checker</h2>
+            <p>YanceLint is a unified code convention checking tool that supports <b>P3C (Alibaba Java Development Guidelines)</b>, <b>ESLint</b>, <b>Stylelint</b>, and <b>Checkstyle</b>, and enables AI (Claude Code) to perceive code convention violations in real-time through MCP Server.</p>
+            <hr/>
             <h2>YanceLint — 企业级代码规约检查插件</h2>
             <p>YanceLint 是一个统一的代码规约检查工具，支持 <b>P3C（阿里巴巴 Java 开发手册）</b>、<b>ESLint</b>、<b>Stylelint</b>、<b>Checkstyle</b> 四种规约引擎，并通过 MCP Server 让 AI（Claude Code）实时感知代码规约违规。</p>
             <h3>核心功能</h3>
@@ -101,6 +104,14 @@ intellijPlatform {
 
 tasks {
     named<Test>("test") {
+        enabled = false
+    }
+
+    // Skip buildSearchableOptions to avoid Ultimate plugin dependency errors in Community IDE
+    named<org.jetbrains.intellij.platform.gradle.tasks.BuildSearchableOptionsTask>("buildSearchableOptions") {
+        enabled = false
+    }
+    named<org.jetbrains.intellij.platform.gradle.tasks.PrepareJarSearchableOptionsTask>("prepareJarSearchableOptions") {
         enabled = false
     }
 
