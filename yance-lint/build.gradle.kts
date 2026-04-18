@@ -100,6 +100,19 @@ intellijPlatform {
             </ul>
             """.trimIndent()
     }
+
+    publishing {
+        token {
+            // Token from environment variable JETBRAINS_TOKEN
+            // Set via GitHub Secrets or environment
+            environment("JETBRAINS_TOKEN")
+        }
+        channels {
+            // Channel can be: eap, beta, stable
+            // Determined by version suffix or environment variable
+            listOf("eap")
+        }
+    }
 }
 
 tasks {
