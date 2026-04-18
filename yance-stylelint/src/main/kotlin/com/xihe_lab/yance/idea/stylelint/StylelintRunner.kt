@@ -1,5 +1,6 @@
 package com.xihe_lab.yance.idea.stylelint
 
+import com.google.gson.JsonParser
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.xihe_lab.yance.engine.ExternalToolLocator
@@ -14,13 +15,6 @@ import java.util.concurrent.*
 class StylelintRunner(private val project: Project) {
 
     private val logger = Logger.getInstance("YanceLint.StylelintRunner")
-    private val pendingTasks = ConcurrentHashMap<String, Future<List<StylelintMessage>>>()
-
-    data class StylelintResult(
-        val source: String,
-        val warnings: List<StylelintMessage>,
-        val errored: List<StylelintMessage>
-    )
 
     data class StylelintMessage(
         val rule: String,
@@ -32,38 +26,19 @@ class StylelintRunner(private val project: Project) {
 
     fun run(filePath: String): List<StylelintMessage> {
         val locator = project.getService(ExternalToolLocator::class.java)
-        val stylelintPath = locator.locate("stylelint") ?: return emptyList()
-
-        pendingTasks.remove(filePath)?.cancel(true)
-
-        val executor = Executors.newSingleThreadExecutor()
-        val future = executor.submit<List<StylelintMessage>> { executeStylelint(stylelintPath, filePath) }
-        pendingTasks[filePath] = future
-
-        return try {
-            future.get(30, TimeUnit.SECONDS)
-        } catch (e: TimeoutException) {
-            logger.warn("Stylelint timeout for file: $filePath")
-            emptyList()
-        } catch (e: Exception) {
-            logger.warn("Stylelint execution failed", e)
-            emptyList()
-        } finally {
-            pendingTasks.remove(filePath)
-            executor.shutdown()
+        val stylelintPath = locator.locate("stylelint") ?: run {
+            logger.info("Stylelint not found in project or global PATH")
+            return emptyList()
         }
+
+        return executeStylelint(stylelintPath, filePath)
     }
 
     private fun executeStylelint(stylelintPath: String, filePath: String): List<StylelintMessage> {
         try {
-            val configParser = StylelintConfigParser(project)
-            val config = configParser.resolveConfig()
+            val command = mutableListOf(stylelintPath, "--formatter", "json", filePath)
 
-            val command = mutableListOf(stylelintPath, "--formatter", "json")
-            if (config?.configPath != null) {
-                command.addAll(listOf("--config", config.configPath))
-            }
-            command.add(filePath)
+            logger.info("Running Stylelint: ${command.joinToString(" ")}")
 
             val process = ProcessBuilder(command)
                 .directory(java.io.File(project.basePath))
@@ -71,7 +46,20 @@ class StylelintRunner(private val project: Project) {
                 .start()
 
             val output = BufferedReader(InputStreamReader(process.inputStream)).readText()
-            process.waitFor(30, TimeUnit.SECONDS)
+            val exited = process.waitFor(30, TimeUnit.SECONDS)
+            if (!exited) {
+                process.destroyForcibly()
+                logger.warn("Stylelint process killed after timeout")
+            }
+
+            val exitCode = process.exitValue()
+            logger.info("Stylelint exit code: $exitCode, output length: ${output.length}")
+
+            // exit code 0 = no issues, 1 = issues found, 2 = fatal error
+            if (exitCode == 2) {
+                logger.warn("Stylelint fatal error: ${output.take(500)}")
+                return emptyList()
+            }
 
             return parseOutput(output)
         } catch (e: Exception) {
@@ -80,24 +68,33 @@ class StylelintRunner(private val project: Project) {
         }
     }
 
-    private fun parseOutput(output: String): List<StylelintMessage> {
+    fun parseOutput(output: String): List<StylelintMessage> {
         val results = mutableListOf<StylelintMessage>()
         try {
             val trimmed = output.trim()
-            if (!trimmed.startsWith("[")) return emptyList()
-
-            val msgRegex = Regex("""\{\s*"rule"\s*:\s*"([^"]*)"\s*,\s*"severity"\s*:\s*"([^"]*)"\s*,\s*"text"\s*:\s*"([^"]*?)"\s*,.*?"line"\s*:\s*(\d+)\s*,\s*"column"\s*:\s*(\d+)""")
-            for (match in msgRegex.findAll(trimmed)) {
-                results.add(StylelintMessage(
-                    rule = match.groupValues[1],
-                    severity = match.groupValues[2],
-                    text = match.groupValues[3],
-                    line = match.groupValues[4].toIntOrNull() ?: 1,
-                    column = match.groupValues[5].toIntOrNull() ?: 1
-                ))
+            if (!trimmed.startsWith("[")) {
+                logger.warn("Stylelint output does not start with '[': ${trimmed.take(200)}")
+                return emptyList()
             }
+
+            val jsonArray = JsonParser.parseString(trimmed).asJsonArray
+            for (fileElement in jsonArray) {
+                val fileObj = fileElement.asJsonObject
+                val warnings = fileObj.getAsJsonArray("warnings") ?: continue
+                for (msgElement in warnings) {
+                    val msgObj = msgElement.asJsonObject
+                    results.add(StylelintMessage(
+                        rule = msgObj.get("rule")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                        severity = msgObj.get("severity")?.takeIf { !it.isJsonNull }?.asString ?: "warning",
+                        text = msgObj.get("text")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                        line = msgObj.get("line")?.takeIf { !it.isJsonNull }?.asInt ?: 1,
+                        column = msgObj.get("column")?.takeIf { !it.isJsonNull }?.asInt ?: 1
+                    ))
+                }
+            }
+            logger.info("Stylelint parsed ${results.size} messages")
         } catch (e: Exception) {
-            logger.warn("Failed to parse Stylelint output", e)
+            logger.warn("Failed to parse Stylelint output: ${output.take(200)}", e)
         }
         return results
     }

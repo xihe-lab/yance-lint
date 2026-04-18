@@ -1,5 +1,6 @@
 package com.xihe_lab.yance.idea.eslint
 
+import com.google.gson.JsonParser
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.xihe_lab.yance.engine.ExternalToolLocator
@@ -14,12 +15,6 @@ import java.util.concurrent.*
 class EsLintRunner(private val project: Project) {
 
     private val logger = Logger.getInstance("YanceLint.EsLintRunner")
-    private val pendingTasks = ConcurrentHashMap<String, Future<List<EsLintMessage>>>()
-
-    data class EsLintResult(
-        val filePath: String,
-        val messages: List<EsLintMessage>
-    )
 
     data class EsLintMessage(
         val ruleId: String?,
@@ -31,38 +26,19 @@ class EsLintRunner(private val project: Project) {
 
     fun run(filePath: String): List<EsLintMessage> {
         val locator = project.getService(ExternalToolLocator::class.java)
-        val eslintPath = locator.locate("eslint") ?: return emptyList()
-
-        pendingTasks.remove(filePath)?.cancel(true)
-
-        val executor = Executors.newSingleThreadExecutor()
-        val future = executor.submit<List<EsLintMessage>> { executeEsLint(eslintPath, filePath) }
-        pendingTasks[filePath] = future
-
-        return try {
-            future.get(30, TimeUnit.SECONDS)
-        } catch (e: TimeoutException) {
-            logger.warn("ESLint timeout for file: $filePath")
-            emptyList()
-        } catch (e: Exception) {
-            logger.warn("ESLint execution failed", e)
-            emptyList()
-        } finally {
-            pendingTasks.remove(filePath)
-            executor.shutdown()
+        val eslintPath = locator.locate("eslint") ?: run {
+            logger.info("ESLint not found in project or global PATH")
+            return emptyList()
         }
+
+        return executeEsLint(eslintPath, filePath)
     }
 
     private fun executeEsLint(eslintPath: String, filePath: String): List<EsLintMessage> {
         try {
-            val configParser = EsLintConfigParser(project)
-            val config = configParser.resolveConfig()
+            val command = mutableListOf(eslintPath, "--format", "json", "--no-color", filePath)
 
-            val command = mutableListOf(eslintPath, "--format", "json")
-            if (config?.configPath != null && !config.isFlatConfig) {
-                command.addAll(listOf("--config", config.configPath))
-            }
-            command.add(filePath)
+            logger.info("Running ESLint: ${command.joinToString(" ")}")
 
             val process = ProcessBuilder(command)
                 .directory(java.io.File(project.basePath))
@@ -70,7 +46,20 @@ class EsLintRunner(private val project: Project) {
                 .start()
 
             val output = BufferedReader(InputStreamReader(process.inputStream)).readText()
-            process.waitFor(30, TimeUnit.SECONDS)
+            val exited = process.waitFor(30, TimeUnit.SECONDS)
+            if (!exited) {
+                process.destroyForcibly()
+                logger.warn("ESLint process killed after timeout")
+            }
+
+            val exitCode = process.exitValue()
+            logger.info("ESLint exit code: $exitCode, output length: ${output.length}")
+
+            // exit code 0 = no issues, 1 = issues found, 2 = fatal error
+            if (exitCode == 2) {
+                logger.warn("ESLint fatal error: ${output.take(500)}")
+                return emptyList()
+            }
 
             return parseOutput(output)
         } catch (e: Exception) {
@@ -79,36 +68,33 @@ class EsLintRunner(private val project: Project) {
         }
     }
 
-    private fun parseOutput(output: String): List<EsLintMessage> {
+    fun parseOutput(output: String): List<EsLintMessage> {
         val results = mutableListOf<EsLintMessage>()
         try {
             val trimmed = output.trim()
-            if (!trimmed.startsWith("[")) return emptyList()
-
-            // 简易 JSON 解析
-            val json = trimmed
-            val messagePattern = """"ruleId"\s*:\s*"(.*?)"""".toRegex()
-            val severityPattern = """"severity"\s*:\s*(\d)""".toRegex()
-            val msgPattern = """"message"\s*:\s*"(.*?)"""".toRegex()
-            val linePattern = """"line"\s*:\s*(\d+)""".toRegex()
-            val colPattern = """"column"\s*:\s*(\d+)""".toRegex()
-
-            // 按 message 块分割
-            val blocks = json.split(Regex("""\{[^}]*"ruleId"""")).filter { it.isNotBlank() }
-
-            // 使用更简单的方式：逐行找关键字段
-            val msgRegex = Regex("""\{\s*"ruleId"\s*:\s*"([^"]*)"\s*,\s*"severity"\s*:\s*(\d)\s*,\s*"message"\s*:\s*"([^"]*)"\s*,\s*"line"\s*:\s*(\d+)\s*,\s*"column"\s*:\s*(\d+)""")
-            for (match in msgRegex.findAll(json)) {
-                results.add(EsLintMessage(
-                    ruleId = match.groupValues[1],
-                    severity = match.groupValues[2].toIntOrNull() ?: 1,
-                    message = match.groupValues[3],
-                    line = match.groupValues[4].toIntOrNull() ?: 1,
-                    column = match.groupValues[5].toIntOrNull() ?: 1
-                ))
+            if (!trimmed.startsWith("[")) {
+                logger.warn("ESLint output does not start with '[': ${trimmed.take(200)}")
+                return emptyList()
             }
+
+            val jsonArray = JsonParser.parseString(trimmed).asJsonArray
+            for (fileElement in jsonArray) {
+                val fileObj = fileElement.asJsonObject
+                val messages = fileObj.getAsJsonArray("messages") ?: continue
+                for (msgElement in messages) {
+                    val msgObj = msgElement.asJsonObject
+                    results.add(EsLintMessage(
+                        ruleId = msgObj.get("ruleId")?.takeIf { !it.isJsonNull }?.asString,
+                        severity = msgObj.get("severity")?.takeIf { !it.isJsonNull }?.asInt ?: 1,
+                        message = msgObj.get("message")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                        line = msgObj.get("line")?.takeIf { !it.isJsonNull }?.asInt ?: 1,
+                        column = msgObj.get("column")?.takeIf { !it.isJsonNull }?.asInt ?: 1
+                    ))
+                }
+            }
+            logger.info("ESLint parsed ${results.size} messages")
         } catch (e: Exception) {
-            logger.warn("Failed to parse ESLint output", e)
+            logger.warn("Failed to parse ESLint output: ${output.take(200)}", e)
         }
         return results
     }
