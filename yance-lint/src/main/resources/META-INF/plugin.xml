@@ -25,98 +25,13 @@
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
-    <depends optional="true" config-file="">com.intellij.modules.java</depends>
-    <depends optional="true" config-file="">com.intellij.css</depends>
+    <depends optional="true" config-file="optional-java.xml">com.intellij.modules.java</depends>
+    <depends optional="true" config-file="optional-javascript.xml">JavaScript</depends>
 
     <resource-bundle>messages.YanceLintBundle</resource-bundle>
 
     <!-- Extensions definition -->
     <extensions defaultExtensionNs="com.intellij">
-        <!-- P3C Naming Inspections -->
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.P3cNamingInspection"
-                         shortName="p3c-naming-inspection"
-                         displayName="P3C 命名检查"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-                         hasStaticDescription="true"
-        />
-
-        <!-- P3C Standalone Inspections (yance-p3c module) -->
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.WrapperTypeEqualityInspection"
-                         shortName="p3c-wrapper-type-equality"
-                         displayName="包装类型使用 equals 比较"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-        />
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.EqualsAvoidNullInspection"
-                         shortName="p3c-equals-avoid-null"
-                         displayName="equals 常量放左侧"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-        />
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.AccessStaticViaInstanceInspection"
-                         shortName="p3c-access-static-via-instance"
-                         displayName="避免通过实例访问静态成员"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-        />
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.ControlFlowStatementWithoutBracesInspection"
-                         shortName="p3c-control-flow-braces"
-                         displayName="控制语句必须使用大括号"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-        />
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.ArrayNamingShouldHaveBracketInspection"
-                         shortName="p3c-array-naming-bracket"
-                         displayName="数组声明使用 Type[] 形式"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-        />
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.LongLiteralsEndingWithLowercaseLInspection"
-                         shortName="p3c-long-literal-uppercase"
-                         displayName="long 常量使用大写 L"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-        />
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.MissingOverrideAnnotationInspection"
-                         shortName="p3c-missing-override"
-                         displayName="覆写方法必须加 @Override"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-        />
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.MapOrSetKeyShouldOverrideHashCodeEqualsInspection"
-                         shortName="p3c-map-set-hashcode-equals"
-                         displayName="Map/Set key 必须重写 hashCode 和 equals"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-        />
-        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.DeprecationInspection"
-                         shortName="p3c-deprecation"
-                         displayName="禁止使用已过时的 API"
-                         groupName="P3C"
-                         language="JAVA"
-                         level="WARNING"
-                         enabledByDefault="true"
-        />
-
         <!-- Register YanceLint ToolWindow -->
         <toolWindow id="YanceLint"
                     factoryClass="com.xihe_lab.yance.idea.lint.ui.YanceLintToolWindowFactory"
@@ -124,19 +39,6 @@
                     icon="AllIcons.Actions.Search"
                     doNotActivateOnStart="true"
 
-        />
-
-        <!-- ESLint Annotator -->
-        <externalAnnotator language="JavaScript"
-                           implementationClass="com.xihe_lab.yance.idea.eslint.EsLintAnnotator"
-        />
-        <externalAnnotator language="TypeScript"
-                           implementationClass="com.xihe_lab.yance.idea.eslint.EsLintAnnotator"
-        />
-
-        <!-- Stylelint Annotator -->
-        <externalAnnotator language="CSS"
-                           implementationClass="com.xihe_lab.yance.idea.stylelint.StylelintAnnotator"
         />
 
     </extensions>
