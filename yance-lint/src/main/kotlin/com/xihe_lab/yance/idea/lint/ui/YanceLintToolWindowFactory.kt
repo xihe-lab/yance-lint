@@ -53,9 +53,9 @@ class YanceLintToolWindowFactory : ToolWindowFactory {
 
         for (tool in toolDescriptors) {
             val available = try {
-                Class.forName(tool.scannerClass)
+                Class.forName(tool.scannerClass, false, javaClass.classLoader)
                 true
-            } catch (_: ClassNotFoundException) {
+            } catch (_: Throwable) {
                 false
             }
 
@@ -83,22 +83,22 @@ class YanceLintToolWindowFactory : ToolWindowFactory {
 
                 for (tool in toolDescriptors) {
                     try {
-                        val scannerClazz = Class.forName(tool.scannerClass)
+                        val scannerClazz = Class.forName(tool.scannerClass, false, javaClass.classLoader)
                         val instance = scannerClazz.getConstructor(Project::class.java).newInstance(project)
 
                         @Suppress("UNCHECKED_CAST")
                         val results: Map<String, List<Any>> = try {
                             val scanMethod = scannerClazz.getMethod("scanProject")
                             scanMethod.invoke(instance) as Map<String, List<Any>>
-                        } catch (_: Exception) {
+                        } catch (_: Throwable) {
                             // P3C uses ServiceManager, try getService approach
                             try {
-                                val serviceClazz = Class.forName("com.intellij.openapi.components.ServiceManager")
+                                val serviceClazz = Class.forName("com.intellij.openapi.components.ServiceManager", false, javaClass.classLoader)
                                 val getService = serviceClazz.getMethod("getService", Project::class.java, Class::class.java)
                                 val service = getService.invoke(null, project, scannerClazz)
                                 val scanMethod = scannerClazz.getMethod("scanProject")
                                 scanMethod.invoke(service) as Map<String, List<Any>>
-                            } catch (_: Exception) {
+                            } catch (_: Throwable) {
                                 emptyMap()
                             }
                         }
@@ -110,7 +110,7 @@ class YanceLintToolWindowFactory : ToolWindowFactory {
                         ApplicationManager.getApplication().invokeLater {
                             resultPanes[tool.name]?.text = report
                         }
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
                         logger.warn("${tool.name} scan failed", e)
                         ApplicationManager.getApplication().invokeLater {
                             resultPanes[tool.name]?.text = "扫描失败: ${e.message}"

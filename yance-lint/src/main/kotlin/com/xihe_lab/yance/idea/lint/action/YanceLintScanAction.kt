@@ -26,7 +26,7 @@ class YanceLintScanAction : AnAction() {
 
             for ((name, className) in scannerClasses) {
                 try {
-                    val clazz = Class.forName(className)
+                    val clazz = Class.forName(className, false, javaClass.classLoader)
                     val instance = clazz.getConstructor(Project::class.java).newInstance(project)
                     val method = clazz.getMethod("scanProject")
                     @Suppress("UNCHECKED_CAST")
@@ -34,9 +34,7 @@ class YanceLintScanAction : AnAction() {
                     val count = results.values.sumOf { it.size }
                     total += count
                     counts[name] = count
-                } catch (_: ClassNotFoundException) {
-                    counts[name] = 0
-                } catch (e: Exception) {
+                } catch (_: Throwable) {
                     counts[name] = 0
                 }
             }
