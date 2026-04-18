@@ -1,16 +1,11 @@
 package com.xihe_lab.yance.idea.lint.ui
 
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
-import com.xihe_lab.yance.idea.checkstyle.CheckstyleRunner
-import com.xihe_lab.yance.idea.eslint.EsLintRunner
-import com.xihe_lab.yance.idea.p3c.service.P3cScanService
-import com.xihe_lab.yance.idea.stylelint.StylelintRunner
 import java.awt.*
 import java.awt.datatransfer.StringSelection
 import javax.swing.*
@@ -26,19 +21,51 @@ class YanceLintToolWindowFactory : ToolWindowFactory {
         toolWindow.contentManager.addContent(content)
     }
 
+    private data class ToolDescriptor(
+        val name: String,
+        val scannerClass: String,
+        val resultClass: String,
+        val fields: List<String>
+    )
+
+    private val toolDescriptors = listOf(
+        ToolDescriptor("P3C",
+            "com.xihe_lab.yance.idea.p3c.service.P3cScanService",
+            "java.lang.String",
+            listOf("message")),
+        ToolDescriptor("ESLint",
+            "com.xihe_lab.yance.idea.eslint.EsLintRunner",
+            "com.xihe_lab.yance.idea.eslint.EsLintRunner\$EsLintMessage",
+            listOf("severity", "line", "column", "message", "ruleId")),
+        ToolDescriptor("Stylelint",
+            "com.xihe_lab.yance.idea.stylelint.StylelintRunner",
+            "com.xihe_lab.yance.idea.stylelint.StylelintRunner\$StylelintMessage",
+            listOf("severity", "line", "column", "text", "rule")),
+        ToolDescriptor("Checkstyle",
+            "com.xihe_lab.yance.idea.checkstyle.CheckstyleRunner",
+            "com.xihe_lab.yance.idea.checkstyle.CheckstyleRunner\$CheckstyleViolation",
+            listOf("severity", "line", "column", "message", "source"))
+    )
+
     private fun createPanel(project: Project): JPanel {
         val tabbedPane = JTabbedPane()
         val resultPanes = mutableMapOf<String, JEditorPane>()
 
-        val tools = listOf("P3C", "ESLint", "Stylelint", "Checkstyle")
-        for (tool in tools) {
+        for (tool in toolDescriptors) {
+            val available = try {
+                Class.forName(tool.scannerClass)
+                true
+            } catch (_: ClassNotFoundException) {
+                false
+            }
+
             val pane = JEditorPane().apply {
                 contentType = "text/plain"
                 isEditable = false
-                text = "点击「全部扫描」开始检查"
+                text = if (available) "点击「全部扫描」开始检查" else "当前 IDE 不支持此工具"
             }
-            resultPanes[tool] = pane
-            tabbedPane.addTab(tool, JScrollPane(pane))
+            resultPanes[tool.name] = pane
+            tabbedPane.addTab(tool.name, JScrollPane(pane))
         }
 
         val statusLabel = JLabel("就绪").apply { foreground = Color.GRAY }
@@ -54,73 +81,47 @@ class YanceLintToolWindowFactory : ToolWindowFactory {
             Thread {
                 var totalIssues = 0
 
-                // P3C
-                try {
-                    val p3cService = ServiceManager.getService(project, P3cScanService::class.java)
-                    val p3cResults = p3cService.scanProject()
-                    val p3cCount = p3cResults.values.flatten().size
-                    totalIssues += p3cCount
-                    ApplicationManager.getApplication().invokeLater {
-                        resultPanes["P3C"]?.text = formatP3cReport(p3cResults)
-                    }
-                } catch (e: Exception) {
-                    logger.warn("P3C scan failed", e)
-                    ApplicationManager.getApplication().invokeLater {
-                        resultPanes["P3C"]?.text = "扫描失败: ${e.message}"
+                for (tool in toolDescriptors) {
+                    try {
+                        val scannerClazz = Class.forName(tool.scannerClass)
+                        val instance = scannerClazz.getConstructor(Project::class.java).newInstance(project)
+
+                        @Suppress("UNCHECKED_CAST")
+                        val results: Map<String, List<Any>> = try {
+                            val scanMethod = scannerClazz.getMethod("scanProject")
+                            scanMethod.invoke(instance) as Map<String, List<Any>>
+                        } catch (_: Exception) {
+                            // P3C uses ServiceManager, try getService approach
+                            try {
+                                val serviceClazz = Class.forName("com.intellij.openapi.components.ServiceManager")
+                                val getService = serviceClazz.getMethod("getService", Project::class.java, Class::class.java)
+                                val service = getService.invoke(null, project, scannerClazz)
+                                val scanMethod = scannerClazz.getMethod("scanProject")
+                                scanMethod.invoke(service) as Map<String, List<Any>>
+                            } catch (_: Exception) {
+                                emptyMap()
+                            }
+                        }
+
+                        val count = results.values.sumOf { it.size }
+                        totalIssues += count
+
+                        val report = formatReport(tool.name, results, tool.fields)
+                        ApplicationManager.getApplication().invokeLater {
+                            resultPanes[tool.name]?.text = report
+                        }
+                    } catch (e: Exception) {
+                        logger.warn("${tool.name} scan failed", e)
+                        ApplicationManager.getApplication().invokeLater {
+                            resultPanes[tool.name]?.text = "扫描失败: ${e.message}"
+                        }
                     }
                 }
 
-                // ESLint
-                try {
-                    val eslintRunner = EsLintRunner(project)
-                    val eslintResults = eslintRunner.scanProject()
-                    val eslintCount = eslintResults.values.flatten().size
-                    totalIssues += eslintCount
-                    ApplicationManager.getApplication().invokeLater {
-                        resultPanes["ESLint"]?.text = formatEsLintReport(eslintResults)
-                    }
-                } catch (e: Exception) {
-                    logger.warn("ESLint scan failed", e)
-                    ApplicationManager.getApplication().invokeLater {
-                        resultPanes["ESLint"]?.text = "扫描失败: ${e.message}"
-                    }
-                }
-
-                // Stylelint
-                try {
-                    val stylelintRunner = StylelintRunner(project)
-                    val stylelintResults = stylelintRunner.scanProject()
-                    val stylelintCount = stylelintResults.values.flatten().size
-                    totalIssues += stylelintCount
-                    ApplicationManager.getApplication().invokeLater {
-                        resultPanes["Stylelint"]?.text = formatStylelintReport(stylelintResults)
-                    }
-                } catch (e: Exception) {
-                    logger.warn("Stylelint scan failed", e)
-                    ApplicationManager.getApplication().invokeLater {
-                        resultPanes["Stylelint"]?.text = "扫描失败: ${e.message}"
-                    }
-                }
-
-                // Checkstyle
-                try {
-                    val checkstyleRunner = CheckstyleRunner(project)
-                    val checkstyleResults = checkstyleRunner.scanProject()
-                    val checkstyleCount = checkstyleResults.values.flatten().size
-                    totalIssues += checkstyleCount
-                    ApplicationManager.getApplication().invokeLater {
-                        resultPanes["Checkstyle"]?.text = formatCheckstyleReport(checkstyleResults)
-                    }
-                } catch (e: Exception) {
-                    logger.warn("Checkstyle scan failed", e)
-                    ApplicationManager.getApplication().invokeLater {
-                        resultPanes["Checkstyle"]?.text = "扫描失败: ${e.message}"
-                    }
-                }
-
+                val finalTotal = totalIssues
                 ApplicationManager.getApplication().invokeLater {
-                    statusLabel.text = if (totalIssues == 0) "扫描完成：未发现问题" else "扫描完成：发现 $totalIssues 个问题"
-                    statusLabel.foreground = if (totalIssues == 0) Color(0, 153, 0) else Color.RED
+                    statusLabel.text = if (finalTotal == 0) "扫描完成：未发现问题" else "扫描完成：发现 $finalTotal 个问题"
+                    statusLabel.foreground = if (finalTotal == 0) Color(0, 153, 0) else Color.RED
                     scanButton.isEnabled = true
                 }
             }.start()
@@ -159,83 +160,45 @@ class YanceLintToolWindowFactory : ToolWindowFactory {
         }
     }
 
-    private fun formatP3cReport(results: Map<String, List<String>>): String {
+    private fun formatReport(toolName: String, results: Map<String, List<Any>>, fields: List<String>): String {
         val sb = StringBuilder()
-        val total = results.values.flatten().size
-        sb.appendLine("P3C 规约检查报告")
-        sb.appendLine("=" .repeat(40))
-        sb.appendLine("扫描结果: 发现 $total 个问题（涉及 ${results.size} 个文件）")
-        sb.appendLine("-".repeat(40))
-        if (results.isEmpty()) {
-            sb.appendLine("\n[通过] 未发现 P3C 违规")
-        } else {
-            results.forEach { (file, issues) ->
-                sb.appendLine("\n文件: $file")
-                issues.forEach { sb.appendLine("  - $it") }
-            }
-        }
-        return sb.toString()
-    }
-
-    private fun formatEsLintReport(results: Map<String, List<EsLintRunner.EsLintMessage>>): String {
-        val sb = StringBuilder()
-        val total = results.values.flatten().size
-        sb.appendLine("ESLint 检查报告")
+        val total = results.values.sumOf { it.size }
+        sb.appendLine("$toolName 检查报告")
         sb.appendLine("=".repeat(40))
         sb.appendLine("扫描结果: 发现 $total 个问题（涉及 ${results.size} 个文件）")
         sb.appendLine("-".repeat(40))
         if (results.isEmpty()) {
-            sb.appendLine("\n[通过] 未发现 ESLint 问题")
+            sb.appendLine("\n[通过] 未发现 $toolName 问题")
         } else {
-            results.forEach { (file, messages) ->
+            results.forEach { (file, items) ->
                 sb.appendLine("\n文件: $file")
-                messages.forEach { msg ->
-                    val sev = if (msg.severity == 2) "error" else "warning"
-                    val rule = msg.ruleId ?: "unknown"
-                    sb.appendLine("  [${sev}] line ${msg.line}:${msg.column} ${msg.message} ($rule)")
+                for (item in items) {
+                    val line = formatItem(item, fields)
+                    sb.appendLine("  $line")
                 }
             }
         }
         return sb.toString()
     }
 
-    private fun formatStylelintReport(results: Map<String, List<StylelintRunner.StylelintMessage>>): String {
-        val sb = StringBuilder()
-        val total = results.values.flatten().size
-        sb.appendLine("Stylelint 检查报告")
-        sb.appendLine("=".repeat(40))
-        sb.appendLine("扫描结果: 发现 $total 个问题（涉及 ${results.size} 个文件）")
-        sb.appendLine("-".repeat(40))
-        if (results.isEmpty()) {
-            sb.appendLine("\n[通过] 未发现 Stylelint 问题")
-        } else {
-            results.forEach { (file, messages) ->
-                sb.appendLine("\n文件: $file")
-                messages.forEach { msg ->
-                    sb.appendLine("  [${msg.severity}] line ${msg.line}:${msg.column} ${msg.text} (${msg.rule})")
-                }
+    private fun formatItem(item: Any, fields: List<String>): String {
+        val clazz = item.javaClass
+        val parts = mutableListOf<String>()
+        for (field in fields) {
+            try {
+                val prop = clazz.getMethod("get${field.replaceFirstChar { it.uppercase() }}")
+                val value = prop.invoke(item) ?: continue
+                parts.add("$field=$value")
+            } catch (_: Exception) {
+                // try direct field access for data class
+                try {
+                    val f = clazz.getDeclaredField(field)
+                    f.isAccessible = true
+                    val value = f.get(item) ?: continue
+                    parts.add("$field=$value")
+                } catch (_: Exception) {}
             }
         }
-        return sb.toString()
-    }
-
-    private fun formatCheckstyleReport(results: Map<String, List<CheckstyleRunner.CheckstyleViolation>>): String {
-        val sb = StringBuilder()
-        val total = results.values.flatten().size
-        sb.appendLine("Checkstyle 检查报告")
-        sb.appendLine("=".repeat(40))
-        sb.appendLine("扫描结果: 发现 $total 个问题（涉及 ${results.size} 个文件）")
-        sb.appendLine("-".repeat(40))
-        if (results.isEmpty()) {
-            sb.appendLine("\n[通过] 未发现 Checkstyle 问题")
-        } else {
-            results.forEach { (file, violations) ->
-                sb.appendLine("\n文件: $file")
-                violations.forEach { v ->
-                    sb.appendLine("  [${v.severity}] line ${v.line}:${v.column} ${v.message} (${v.source})")
-                }
-            }
-        }
-        return sb.toString()
+        return parts.joinToString(", ")
     }
 }
