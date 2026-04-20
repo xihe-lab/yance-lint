@@ -17,7 +17,9 @@ import javax.swing.Icon
 
 class YanceGutterLineMarkerProvider : RelatedItemLineMarkerProvider() {
 
-    private val markedLinesByFile = ConcurrentHashMap<String, Pair<Long, MutableSet<Int>>>()
+    companion object {
+        private val markedLinesByFile = ConcurrentHashMap<String, Pair<Long, MutableSet<Int>>>()
+    }
 
     override fun collectSlowLineMarkers(
         elements: List<PsiElement>,
