@@ -1,11 +1,16 @@
 package com.xihe_lab.yance.idea.lint.gutter
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.ui.awt.RelativePoint
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
+import com.xihe_lab.yance.idea.eslint.EsLintFixer
+import com.xihe_lab.yance.idea.stylelint.StylelintFixer
 import com.xihe_lab.yance.service.ViolationCache
 import java.awt.*
 import java.awt.event.MouseEvent
@@ -24,7 +29,7 @@ object YanceViolationPopup {
         violations: List<ViolationCache.CachedViolation>,
         project: Project
     ) {
-        val panel = buildPanel(violations)
+        val panel = buildPanel(violations, project)
 
         val popup = JBPopupFactory.getInstance()
             .createComponentPopupBuilder(panel, null)
@@ -47,7 +52,7 @@ object YanceViolationPopup {
         }
     }
 
-    private fun buildPanel(violations: List<ViolationCache.CachedViolation>): JComponent {
+    private fun buildPanel(violations: List<ViolationCache.CachedViolation>, project: Project): JComponent {
         val panel = JBPanel<JBPanel<*>>().apply {
             layout = BorderLayout(0, 4)
             border = BorderFactory.createEmptyBorder(4, 8, 4, 8)
@@ -89,10 +94,64 @@ object YanceViolationPopup {
             content.add(metaLabel, BorderLayout.SOUTH)
 
             row.add(content, BorderLayout.CENTER)
+
+            // Fix button (if fixable)
+            val fixButton = createFixButton(v, project)
+            if (fixButton != null) {
+                row.add(fixButton, BorderLayout.EAST)
+            }
+
             listPanel.add(row)
         }
 
         panel.add(listPanel, BorderLayout.CENTER)
         return panel
+    }
+
+    private fun createFixButton(violation: ViolationCache.CachedViolation, project: Project): JButton? {
+        val canFix = when (violation.tool) {
+            "ESLint", "eslint" -> true
+            "Stylelint", "stylelint" -> true
+            else -> false
+        }
+
+        if (!canFix) return null
+
+        val button = JButton("Fix")
+        button.font = button.font.deriveFont(Font.PLAIN, 10f)
+        button.addActionListener {
+            applyFix(violation, project)
+        }
+        return button
+    }
+
+    private fun applyFix(violation: ViolationCache.CachedViolation, project: Project) {
+        val success = when (violation.tool.lowercase()) {
+            "eslint" -> {
+                val fixer = EsLintFixer(project)
+                fixer.fixFile(violation.filePath)
+            }
+            "stylelint" -> {
+                val fixer = StylelintFixer(project)
+                fixer.fixFile(violation.filePath)
+            }
+            else -> false
+        }
+
+        if (success) {
+            // Refresh editor
+            ApplicationManager.getApplication().invokeLater {
+                val file = VirtualFileManager.getInstance().findFileByUrl("file://${violation.filePath}")
+                if (file != null) {
+                    val document = FileDocumentManager.getInstance().getDocument(file)
+                    if (document != null) {
+                        FileDocumentManager.getInstance().reloadFromDisk(document)
+                    }
+                    VirtualFileManager.getInstance().syncRefresh()
+                }
+                // Clear violation cache
+                ViolationCache.getInstance(project).invalidate(violation.filePath)
+            }
+        }
     }
 }
