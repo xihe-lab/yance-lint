@@ -1,9 +1,9 @@
 package com.xihe_lab.yance.idea.lint.gutter
 
-import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.ui.awt.RelativePoint
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.xihe_lab.yance.service.ViolationCache
@@ -36,7 +36,12 @@ object YanceViolationPopup {
 
         val editor = FileEditorManager.getInstance(project).selectedTextEditor
         if (editor != null) {
-            popup.showInBestPositionFor(editor)
+            val line = violations.first().line - 1
+            val startOffset = editor.document.getLineStartOffset(line.coerceIn(0, editor.document.lineCount - 1))
+            val visualPos = editor.offsetToVisualPosition(startOffset)
+            val point = editor.visualPositionToXY(visualPos)
+            SwingUtilities.convertPointToScreen(point, editor.contentComponent)
+            popup.show(RelativePoint(point))
         } else {
             popup.show(e.component)
         }
