@@ -14,7 +14,6 @@ class LintHttpServer(private val project: Project) {
 
     companion object {
         const val DEFAULT_PORT = 63742
-        const val MAX_PORT_ATTEMPTS = 10
     }
 
     var port: Int = 0
@@ -24,8 +23,7 @@ class LintHttpServer(private val project: Project) {
         if (server != null) return
 
         try {
-            val port = findAvailablePort()
-            val httpServer = HttpServer.create(InetSocketAddress("127.0.0.1", port), 0)
+            val httpServer = HttpServer.create(InetSocketAddress("127.0.0.1", DEFAULT_PORT), 0)
 
             httpServer.createContext("/api/health") { exchange ->
                 val tools = aggregator.getAvailableTools()
@@ -57,8 +55,10 @@ class LintHttpServer(private val project: Project) {
             httpServer.executor = null
             httpServer.start()
             this.server = httpServer
-            this.port = port
-            logger.info("YanceLint HTTP Server started on port $port")
+            this.port = DEFAULT_PORT
+            logger.info("YanceLint HTTP Server started on port $DEFAULT_PORT")
+        } catch (_: java.net.BindException) {
+            logger.warn("YanceLint HTTP Server port $DEFAULT_PORT already in use, skipping (another project owns it)")
         } catch (e: Exception) {
             logger.error("Failed to start YanceLint HTTP Server", e)
         }
@@ -68,20 +68,6 @@ class LintHttpServer(private val project: Project) {
         server?.stop(0)
         server = null
         logger.info("YanceLint HTTP Server stopped")
-    }
-
-    private fun findAvailablePort(): Int {
-        for (attempt in 0 until MAX_PORT_ATTEMPTS) {
-            val candidatePort = DEFAULT_PORT + attempt
-            try {
-                val testSocket = java.net.ServerSocket(candidatePort)
-                testSocket.close()
-                return candidatePort
-            } catch (_: Exception) {
-                continue
-            }
-        }
-        throw IllegalStateException("No available port in range $DEFAULT_PORT..${DEFAULT_PORT + MAX_PORT_ATTEMPTS}")
     }
 
     private fun sendJson(exchange: com.sun.net.httpserver.HttpExchange, code: Int, body: String) {
