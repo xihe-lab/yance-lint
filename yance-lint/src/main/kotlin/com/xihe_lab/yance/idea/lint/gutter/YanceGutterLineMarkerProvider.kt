@@ -7,6 +7,7 @@ import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.xihe_lab.yance.idea.lint.ui.YanceLintIcons
@@ -18,7 +19,17 @@ import javax.swing.Icon
 class YanceGutterLineMarkerProvider : RelatedItemLineMarkerProvider() {
 
     companion object {
-        private val markedLinesByFile = ConcurrentHashMap<String, Pair<Long, MutableSet<Int>>>()
+        private val MARKED_LINES_KEY = Key.create<ConcurrentHashMap<String, Pair<Long, MutableSet<Int>>>>(
+            "YanceGutter.MarkedLines"
+        )
+    }
+
+    private fun getMarkedLinesMap(project: Project): ConcurrentHashMap<String, Pair<Long, MutableSet<Int>>> {
+        return project.getUserData(MARKED_LINES_KEY) ?: run {
+            val map = ConcurrentHashMap<String, Pair<Long, MutableSet<Int>>>()
+            project.putUserData(MARKED_LINES_KEY, map)
+            map
+        }
     }
 
     override fun collectSlowLineMarkers(
@@ -35,16 +46,15 @@ class YanceGutterLineMarkerProvider : RelatedItemLineMarkerProvider() {
 
         val cache = ViolationCache.getInstance(project)
         val cachedViolations = cache.get(filePath, stamp).orEmpty()
-        val cachedLines = cachedViolations.map { it.line }.toSet()
         val editorHighlights = readEditorHighlights(document, project, filePath)
-            .filter { it.line !in cachedLines }
-        val allViolations = cachedViolations + editorHighlights
+        val allViolations = (cachedViolations + editorHighlights)
+            .distinctBy { it.line to it.message }
 
         if (allViolations.isEmpty()) return
 
         val violationsByLine = allViolations.groupBy { it.line }
 
-        val markedLines = markedLinesByFile.compute(filePath) { _, existing ->
+        val markedLines = getMarkedLinesMap(project).compute(filePath) { _, existing ->
             if (existing != null && existing.first == stamp) existing
             else stamp to Collections.synchronizedSet(mutableSetOf())
         }!!.second
@@ -79,18 +89,19 @@ class YanceGutterLineMarkerProvider : RelatedItemLineMarkerProvider() {
     ): List<ViolationCache.CachedViolation> {
         val violations = mutableListOf<ViolationCache.CachedViolation>()
         DaemonCodeAnalyzerEx.processHighlights(
-            document, project, HighlightSeverity.WARNING,
+            document, project, HighlightSeverity.INFORMATION,
             0, document.textLength
         ) { info: HighlightInfo ->
+            val description = info.description ?: return@processHighlights true
             val line = document.getLineNumber(info.startOffset) + 1
             val severity = when {
-                info.severity == HighlightSeverity.ERROR -> ViolationCache.Severity.ERROR
-                info.severity == HighlightSeverity.WARNING -> ViolationCache.Severity.WARNING
+                info.severity.compareTo(HighlightSeverity.ERROR) >= 0 -> ViolationCache.Severity.ERROR
+                info.severity.compareTo(HighlightSeverity.WARNING) >= 0 -> ViolationCache.Severity.WARNING
                 else -> ViolationCache.Severity.INFO
             }
             violations.add(
                 ViolationCache.CachedViolation(
-                    message = info.description ?: "Unknown",
+                    message = description,
                     severity = severity,
                     tool = info.inspectionToolId ?: "Editor",
                     filePath = filePath,
