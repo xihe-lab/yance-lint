@@ -32,10 +32,22 @@ class StylelintFixer(private val project: Project) {
             val command = listOf(stylelintPath, "--fix", filePath)
             logger.info("Running Stylelint fix on $filePath")
 
-            val process = ProcessBuilder(command)
+            val pb = ProcessBuilder(command)
                 .directory(File(project.basePath))
                 .redirectErrorStream(true)
-                .start()
+
+            // Ensure node is on PATH (IDE process may lack nvm/fnm paths)
+            locator.locateNode()?.let { nodePath ->
+                File(nodePath).parentFile?.absolutePath?.let { nodeDir ->
+                    val env = pb.environment()
+                    val currentPath = env["PATH"] ?: System.getenv("PATH") ?: ""
+                    if (!currentPath.split(File.pathSeparator).contains(nodeDir)) {
+                        env["PATH"] = "$nodeDir${File.pathSeparator}$currentPath"
+                    }
+                }
+            }
+
+            val process = pb.start()
 
             val output = BufferedReader(InputStreamReader(process.inputStream)).readText()
             val exited = process.waitFor(30, TimeUnit.SECONDS)

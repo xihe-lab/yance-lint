@@ -153,17 +153,20 @@ class YanceLintToolWindowFactory : ToolWindowFactory {
                             logger.info("${tool.name}: instance created: ${instance.javaClass.name}")
 
                             @Suppress("UNCHECKED_CAST")
+                            var scanError: String? = null
                             val results: Map<String, List<Any>> = try {
                                 val scanMethod = scannerClazz.getMethod("scanProject")
                                 scanMethod.invoke(instance) as Map<String, List<Any>>
                             } catch (e: Throwable) {
-                                logger.warn("${tool.name} scanProject() failed", e)
+                                val cause = if (e is java.lang.reflect.InvocationTargetException) e.targetException else e
+                                logger.warn("${tool.name} scanProject() failed", cause)
+                                scanError = cause.message ?: cause.javaClass.simpleName
                                 emptyMap()
                             }
 
                             val violationCount = results.values.sumOf { it.size }
                             logger.info("${tool.name}: found ${results.size} files, $violationCount violations")
-                            toolStatuses[tool.name] = "${results.size} files, $violationCount issues"
+                            toolStatuses[tool.name] = if (scanError != null) "FAILED: $scanError" else "${results.size} files, $violationCount issues"
 
                             for ((file, violations) in results) {
                                 for (v in violations) {
