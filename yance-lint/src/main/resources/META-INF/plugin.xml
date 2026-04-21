@@ -114,6 +114,14 @@
             <add-to-group group-id="EditorPopupMenu" anchor="last" />
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last" />
         </action>
+        <action id="YanceLintBatchFixAction"
+                class="com.xihe_lab.yance.idea.lint.fix.BatchFixAction"
+                text="Batch Fix (YanceLint)"
+                description="Batch auto-fix convention violations for selected files"
+                icon="/icons/yanceLint.svg">
+            <add-to-group group-id="ToolsMenu" />
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last" />
+        </action>
     </actions>
 
 </idea-plugin>

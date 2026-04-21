@@ -244,11 +244,86 @@ class YanceLintToolWindowFactory : ToolWindowFactory {
             statusLabel.foreground = Color(0, 153, 0)
         }
 
+        val batchFixButton = JButton("批量修复").apply {
+            toolTipText = "对当前工具标签页中的违规文件执行批量自动修复"
+            addActionListener {
+                val idx = tabbedPane.selectedIndex
+                val toolName = tabbedPane.getTitleAt(idx)
+                val model = listModels[toolName] ?: return@addActionListener
+                if (model.isEmpty) return@addActionListener
+
+                val filePaths = (0 until model.size()).map { model.getElementAt(it).filePath }.distinct()
+                val files = filePaths.mapNotNull {
+                    LocalFileSystem.getInstance().findFileByPath(it)
+                }
+
+                if (files.isEmpty()) {
+                    statusLabel.text = "没有可修复的文件"
+                    return@addActionListener
+                }
+
+                statusLabel.text = "正在批量修复 ${files.size} 个文件..."
+                statusLabel.foreground = Color(0x1E, 0x2B, 0x4D)
+                progressBar.isVisible = true
+                isEnabled = false
+                scanButton.isEnabled = false
+
+                Thread {
+                    val cache = com.xihe_lab.yance.service.ViolationCache.getInstance(project)
+                    var fixed = 0
+                    var failed = 0
+
+                    for (file in files) {
+                        val ext = file.extension?.lowercase() ?: continue
+                        val success = when (ext) {
+                            "js", "jsx", "ts", "tsx", "vue" -> {
+                                try {
+                                    val fixer = com.xihe_lab.yance.idea.eslint.EsLintFixer(project)
+                                    fixer.fixFile(file.path)
+                                } catch (_: Throwable) { false }
+                            }
+                            "css", "scss", "less", "sass" -> {
+                                try {
+                                    val fixer = com.xihe_lab.yance.idea.stylelint.StylelintFixer(project)
+                                    fixer.fixFile(file.path)
+                                } catch (_: Throwable) { false }
+                            }
+                            else -> false
+                        }
+                        if (success) {
+                            fixed++
+                            cache.invalidate(file.path)
+                        } else {
+                            failed++
+                        }
+                    }
+
+                    val finalFixed = fixed
+                    val finalFailed = failed
+                    ApplicationManager.getApplication().invokeLater {
+                        progressBar.isVisible = false
+                        isEnabled = true
+                        scanButton.isEnabled = true
+                        com.intellij.openapi.vfs.VirtualFileManager.getInstance().syncRefresh()
+                        if (finalFailed == 0) {
+                            statusLabel.text = "批量修复完成：$finalFixed 个文件已修复"
+                            statusLabel.foreground = Color(0, 153, 0)
+                        } else {
+                            statusLabel.text = "批量修复完成：$finalFixed 已修复，$finalFailed 失败"
+                            statusLabel.foreground = Color(0xDB, 0x58, 0x60)
+                        }
+                        scanButton.doClick()
+                    }
+                }.start()
+            }
+        }
+
         val toolBar = JPanel().apply {
             layout = FlowLayout(FlowLayout.LEFT, 4, 4)
             add(scanButton)
             add(clearButton)
             add(copyButton)
+            add(batchFixButton)
             add(Box.createHorizontalStrut(8))
             add(JLabel("Severity:"))
             add(severityFilter)
