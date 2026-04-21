@@ -84,6 +84,39 @@
                          level="WARNING"
                          enabledByDefault="true"
         />
+        <!-- P3C Extended Inspections -->
+        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.SubListCastToArrayListInspection"
+                         shortName="p3c-sublist-cast"
+                         displayName="subList 结果不可强转 ArrayList"
+                         groupName="P3C"
+                         language="JAVA"
+                         level="WARNING"
+                         enabledByDefault="true"
+        />
+        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.ThreadPoolCreationInspection"
+                         shortName="p3c-thread-pool"
+                         displayName="不要显式创建线程"
+                         groupName="P3C"
+                         language="JAVA"
+                         level="WARNING"
+                         enabledByDefault="true"
+        />
+        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.AvoidManuallyCreateThreadPoolInspection"
+                         shortName="p3c-executors-create"
+                         displayName="不要使用 Executors 创建线程池"
+                         groupName="P3C"
+                         language="JAVA"
+                         level="WARNING"
+                         enabledByDefault="true"
+        />
+        <localInspection implementationClass="com.xihe_lab.yance.idea.p3c.inspection.AvoidCatchNullPointerExceptionInspection"
+                         shortName="p3c-catch-npe"
+                         displayName="避免捕获 NullPointerException"
+                         groupName="P3C"
+                         language="JAVA"
+                         level="WARNING"
+                         enabledByDefault="true"
+        />
         <!-- Checkstyle Annotator -->
         <externalAnnotator language="JAVA"
                            implementationClass="com.xihe_lab.yance.idea.checkstyle.CheckstyleAnnotator"
