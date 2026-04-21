@@ -3,6 +3,8 @@ package com.xihe_lab.yance.idea.server
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.xihe_lab.yance.idea.lint.ui.ViolationItem
+import com.xihe_lab.yance.service.ViolationCache
+import java.io.File
 
 class ViolationAggregator(private val project: Project) {
 
@@ -27,6 +29,17 @@ class ViolationAggregator(private val project: Project) {
     }
 
     fun getViolations(filePath: String): List<ViolationItem> {
+        // 1. Try ViolationCache first (populated by annotator)
+        val cache = ViolationCache.getInstance(project)
+        val modStamp = getModificationStamp(filePath)
+        val cached = cache.get(filePath, modStamp)
+        if (cached != null) {
+            logger.info("Cache hit for $filePath: ${cached.size} violations")
+            return cached.map { it.toViolationItem() }
+        }
+
+        // 2. Cache miss: trigger scan
+        logger.info("Cache miss for $filePath, triggering scan")
         val ext = filePath.substringAfterLast('.', "").lowercase()
         val items = mutableListOf<ViolationItem>()
 
@@ -38,6 +51,12 @@ class ViolationAggregator(private val project: Project) {
                 logger.warn("${tool.name} scan failed for $filePath", e)
             }
         }
+
+        // Cache the scan results
+        if (items.isNotEmpty()) {
+            cache.put(filePath, items.map { it.toCachedViolation() }, modStamp)
+        }
+
         return items
     }
 
@@ -165,4 +184,37 @@ class ViolationAggregator(private val project: Project) {
         val total: Int,
         val byTool: Map<String, Int>
     )
+
+    private fun getModificationStamp(filePath: String): Long {
+        return try {
+            val file = File(filePath)
+            if (file.exists()) file.lastModified() else 0L
+        } catch (_: Throwable) { 0L }
+    }
 }
+
+private fun ViolationCache.CachedViolation.toViolationItem() = ViolationItem(
+    message = message,
+    severity = when (severity) {
+        ViolationCache.Severity.ERROR -> ViolationItem.Severity.ERROR
+        ViolationCache.Severity.WARNING -> ViolationItem.Severity.WARNING
+        ViolationCache.Severity.INFO -> ViolationItem.Severity.INFO
+    },
+    tool = tool,
+    filePath = filePath,
+    line = line,
+    column = column
+)
+
+private fun ViolationItem.toCachedViolation() = ViolationCache.CachedViolation(
+    message = message,
+    severity = when (severity) {
+        ViolationItem.Severity.ERROR -> ViolationCache.Severity.ERROR
+        ViolationItem.Severity.WARNING -> ViolationCache.Severity.WARNING
+        ViolationItem.Severity.INFO -> ViolationCache.Severity.INFO
+    },
+    tool = tool,
+    filePath = filePath,
+    line = line,
+    column = column
+)
