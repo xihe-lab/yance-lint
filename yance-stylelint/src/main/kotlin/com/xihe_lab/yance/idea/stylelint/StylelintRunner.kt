@@ -61,10 +61,23 @@ class StylelintRunner(private val project: Project) {
 
             logger.info("Running Stylelint on ${filePaths.size} file(s)")
 
-            val process = ProcessBuilder(command)
+            val pb = ProcessBuilder(command)
                 .directory(File(project.basePath))
                 .redirectErrorStream(true)
-                .start()
+
+            // Ensure node is on PATH (IDE process may lack nvm/fnm paths)
+            val locator = project.getService(ExternalToolLocator::class.java)
+            locator.locateNode()?.let { nodePath ->
+                File(nodePath).parentFile?.absolutePath?.let { nodeDir ->
+                    val env = pb.environment()
+                    val currentPath = env["PATH"] ?: System.getenv("PATH") ?: ""
+                    if (!currentPath.split(File.pathSeparator).contains(nodeDir)) {
+                        env["PATH"] = "$nodeDir${File.pathSeparator}$currentPath"
+                    }
+                }
+            }
+
+            val process = pb.start()
 
             val output = BufferedReader(InputStreamReader(process.inputStream)).readText()
             val exited = process.waitFor(60, TimeUnit.SECONDS)

@@ -27,13 +27,10 @@ dependencies {
     implementation(project(":yance-checkstyle"))
 
     intellijPlatform {
-        intellijIdea(providers.gradleProperty("platformVersion"))
-        bundledPlugin("org.jetbrains.kotlin")
-//        bundledPlugin("JavaScript")
+//        intellijIdea(providers.gradleProperty("platformVersion"))
+        webstorm(providers.gradleProperty("platformVersion"))
+//        bundledPlugin("org.jetbrains.kotlin")
         bundledPlugin("org.intellij.plugins.markdown")
-//        bundledPlugin("com.intellij.css")
-//        bundledPlugin("com.intellij.react")
-//        bundledPlugin("org.jetbrains.plugins.less")
     }
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")

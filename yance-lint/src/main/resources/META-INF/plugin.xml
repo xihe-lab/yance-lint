@@ -86,8 +86,10 @@
                     doNotActivateOnStart="true"
         />
         <notificationGroup id="YanceLint Notifications" displayType="BALLOON" />
-        <projectService serviceImplementation="com.xihe_lab.yance.idea.server.LintHttpServer" />
-        <projectService serviceImplementation="com.xihe_lab.yance.service.ViolationCache" />
+        <projectConfigurable parentId="tools"
+                            instance="com.xihe_lab.yance.idea.lint.settings.YanceLintSettingsConfigurable"
+                            id="YanceLintSettings"
+                            displayName="YanceLint" />
         <postStartupActivity implementation="com.xihe_lab.yance.idea.server.ServerStartupActivity" />
     </extensions>
 
@@ -99,6 +101,23 @@
                 icon="/icons/yanceLint.svg">
             <add-to-group group-id="ToolsMenu" />
             <keyboard-shortcut first-keystroke="shift alt P" keymap="$default" />
+        </action>
+        <action id="YanceLintReviewAction"
+                class="com.xihe_lab.yance.idea.lint.review.ReviewCodeAction"
+                text="Review Code (YanceLint)"
+                description="Review selected files for convention violations"
+                icon="/icons/yanceLint.svg">
+            <add-to-group group-id="ToolsMenu" />
+            <add-to-group group-id="EditorPopupMenu" anchor="last" />
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last" />
+        </action>
+        <action id="YanceLintBatchFixAction"
+                class="com.xihe_lab.yance.idea.lint.fix.BatchFixAction"
+                text="Batch Fix (YanceLint)"
+                description="Batch auto-fix convention violations for selected files"
+                icon="/icons/yanceLint.svg">
+            <add-to-group group-id="ToolsMenu" />
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last" />
         </action>
     </actions>
 

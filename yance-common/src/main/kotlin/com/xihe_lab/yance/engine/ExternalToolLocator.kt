@@ -47,6 +47,63 @@ class ExternalToolLocator(private val project: Project) {
         cache.clear()
     }
 
+    fun locateNode(): String? {
+        val cached = cache["node"]
+        if (cached != null && !isExpired(cached)) {
+            if (File(cached.path).exists()) return cached.path
+            cache.remove("node")
+        }
+
+        // 1. Check current PATH
+        val pathNode = findGlobalTool("node")
+        if (pathNode != null) {
+            cache["node"] = CachedEntry(pathNode, System.currentTimeMillis(), 0)
+            return pathNode
+        }
+
+        // 2. Common node locations (nvm, fnm, volta, homebrew)
+        val home = System.getProperty("user.home")
+        val candidates = mutableListOf<String>()
+
+        // nvm — pick latest version directory
+        val nvmDir = File(home, ".nvm/versions/node")
+        if (nvmDir.isDirectory) {
+            nvmDir.listFiles()?.filter { it.isDirectory }?.maxByOrNull { it.name }?.let {
+                candidates.add(File(it, "bin/node").absolutePath)
+            }
+        }
+
+        // fnm
+        val fnmMultishell = System.getenv("FNM_MULTISHELL_PATH")
+        if (fnmMultishell != null) {
+            candidates.add(File(fnmMultishell, "node").absolutePath)
+        }
+        val fnmPath = System.getenv("FNM_PATH")
+        if (fnmPath != null) {
+            File(fnmPath).listFiles()?.filter { it.isDirectory }?.maxByOrNull { it.name }?.let {
+                candidates.add(File(it, "installation/bin/node").absolutePath)
+            }
+        }
+
+        // volta
+        val voltaHome = System.getenv("VOLTA_HOME") ?: "$home/.volta"
+        candidates.add("$voltaHome/bin/node")
+
+        // homebrew (macOS)
+        candidates.add("/usr/local/bin/node")
+        candidates.add("/opt/homebrew/bin/node")
+
+        for (candidate in candidates) {
+            val f = File(candidate)
+            if (f.exists() && f.canExecute()) {
+                cache["node"] = CachedEntry(f.absolutePath, System.currentTimeMillis(), 0)
+                return f.absolutePath
+            }
+        }
+
+        return null
+    }
+
     private fun findLocalTool(toolName: String, basePath: String): String? {
         var dir = File(basePath)
         val toolNames = listOf(toolName, "$toolName.cmd", "$toolName.ps1")
